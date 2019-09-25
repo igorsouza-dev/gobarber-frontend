@@ -4,7 +4,7 @@ import { toast } from 'react-toastify';
 import api from '~/services/api';
 import history from '~/services/history';
 
-import { signInSuccess, signInFailure } from './actions';
+import { signInSuccess, signFailure, signUpRequest } from './actions';
 
 export function* signIn({ payload }) {
   try {
@@ -20,11 +20,41 @@ export function* signIn({ payload }) {
       toast.error('User is not a provider!');
       return;
     }
+
+    api.defaults.headers.Authorization = `Bearer ${token}`;
+
     yield put(signInSuccess(token, user));
     history.push('/dashboard');
   } catch (err) {
     toast.error('Authentication failed! Check your information.');
-    yield put(signInFailure());
+    yield put(signFailure());
   }
 }
-export default all([takeLatest('@auth/SIGN_IN_REQUEST', signIn)]);
+export function* signUp({ payload }) {
+  try {
+    const { name, email, password } = payload;
+    const response = yield call(api.post, 'users', {
+      name,
+      email,
+      password,
+      provider: true,
+    });
+    toast.success('Sign Up was a success!');
+    history.push('/');
+  } catch (err) {
+    toast.error('Sign Up failed!');
+    yield put(signFailure());
+  }
+}
+export function setToken({ payload }) {
+  if (!payload) return;
+  const { token } = payload;
+  if (token) {
+    api.defaults.headers.Authorization = `Bearer ${token}`;
+  }
+}
+export default all([
+  takeLatest('persist/REHYDRATE', setToken),
+  takeLatest('@auth/SIGN_IN_REQUEST', signIn),
+  takeLatest('@auth/SIGN_UP_REQUEST', signUp),
+]);
